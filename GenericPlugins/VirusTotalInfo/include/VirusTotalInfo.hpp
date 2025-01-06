@@ -3,6 +3,7 @@
 #include "GView.hpp"
 #include <nlohmann/json.hpp>
 #include <map>
+
 using json = nlohmann::json;
 using namespace GView::Hashes;
 
@@ -54,6 +55,8 @@ private:
       bool ExportResults();
       bool ImportAndParseResult();
       bool ComputeDetails();
+      bool CurlVirusTotalResults(std::string& responseString);
+
 	  virtual void OnAfterResize(int newWidth, int newHeight) override;
       bool OnEvent(Reference<Control> sender, Event eventType, int controlID) override;
 };

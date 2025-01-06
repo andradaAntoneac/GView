@@ -2,6 +2,8 @@
 #include <fstream>
 #include <iostream>
 #include <ctime>
+#include <curl/curl.h>
+#undef MessageBox
 
 namespace GView::GenericPlugins::VirusTotalInfo
 {
@@ -63,31 +65,26 @@ Plugin::Plugin(Reference<Object> object) : Window("Virus Total Detections", "d:c
         Dialogs::MessageBox::ShowWarning("Warning", "No API key found for the potential VirusTotal request !");
     }
 
-    // partea asta o sa fie inlocuita de curl
-    std::string filePath = "D:\\facultate\\RE\\data.json";
-    std::ifstream inputFile(filePath);
-    if (!inputFile.is_open()) {
-        std::cerr << "Could not open file: " << filePath << std::endl;
-    }
+    std::string responseString;
+   /* if (CurlVirusTotalResults(responseString)) {*/
+        try {
+            json jsonObj = json::parse(responseString);
+            if (!ParseJsonResponse(jsonObj)) {
+                Dialogs::MessageBox::ShowError("Error", "Error parsing the response JSON!");
+            } else {
+                ComputeMD5Hash();
+                ImportAndParseResult();
+                CreateSortedListView();
+                // ExportResults();
+            }
 
-    try {
-        json jsonObj;
-        inputFile >> jsonObj;
-        inputFile.close();
-        if (!ParseJsonResponse(jsonObj)) {
-            Dialogs::MessageBox::ShowError("Error", "Error parsing the response JSON!");
-        } else {
-            ComputeMD5Hash();
-            ImportAndParseResult();
-            CreateSortedListView();
-            //ExportResults();
-       
+        } catch (const json::parse_error& e) {
+            auto c = e.what();
+            Dialogs::MessageBox::ShowError("Error", "Error getting the response JSON!");
         }
-
-    } catch (const json::parse_error& e) {
-        auto c = e.what();
-        Dialogs::MessageBox::ShowError("Error", "Error getting the response JSON!");
-    }
+   /* } else {
+        Dialogs::MessageBox::ShowError("Error", "Error getting the response from VirusTotal!");
+    }*/
 }
 
 bool Plugin::ParseJsonResponse(json jsonValue)
@@ -107,7 +104,7 @@ bool Plugin::ParseJsonResponse(json jsonValue)
     this->noOfEngines = this->detectionsMap.size();
 
     this->lastAnalysisDate = jsonValue["data"]["attributes"]["last_analysis_date"];
-    
+
     ComputeDetails();
 
     return true;
@@ -244,7 +241,47 @@ bool Plugin::ImportAndParseResult()
         return false;
     }
 
+    return true;
+}
 
+size_t WriteCallback(void* contents, size_t size, size_t nmemb, void* userp)
+{
+    ((std::string*) userp)->append((char*) contents, size * nmemb);
+    return size * nmemb;
+}
+
+bool Plugin::CurlVirusTotalResults(std::string& responseString)
+{
+    /*std::string URL = "https: // www.virustotal.com/api/v3/files/";
+    URL.append(this->md5Hash);
+
+    CURL* curl = curl_easy_init();
+    if (!curl) {
+        return false;
+    }
+
+    curl_easy_setopt(curl, CURLOPT_URL, URL.c_str());
+    curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, WriteCallback);
+    curl_easy_setopt(curl, CURLOPT_WRITEDATA, responseString);
+
+    struct curl_slist* headers = nullptr;
+    std::string header         = "x-apikey: ";
+    header.append(this->APIkey);
+    headers                    = curl_slist_append(headers, header.c_str());
+    curl_easy_setopt(curl, CURLOPT_HTTPHEADER, headers);
+
+    CURLcode res = curl_easy_perform(curl);
+
+    if(res != CURLE_OK)
+    {
+        std::cerr << "CURL request failed: " << curl_easy_strerror(res) << std::endl;
+        curl_slist_free_all(headers);
+        curl_easy_cleanup(curl);
+        return false;
+    }
+
+    curl_slist_free_all(headers);
+    curl_easy_cleanup(curl);*/
     return true;
 }
 
