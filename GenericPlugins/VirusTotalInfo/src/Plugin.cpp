@@ -3,7 +3,6 @@
 #include <iostream>
 #include <ctime>
 
-
 namespace GView::GenericPlugins::VirusTotalInfo
 {
 
@@ -25,7 +24,7 @@ Plugin::Plugin(Reference<Object> object) : Window("Virus Total Detections", "d:c
           TextAreaFlags::Readonly);
 
     this->hashLabel            = Factory::Label::Create(this, "Hash(MD5)", "x:30%,y:5%,w:30%");
-    this->filesHash            = Factory::TextArea::Create(this, "something to add later", "x:45%, y:3%, w:30%, h:5%", TextAreaFlags::Readonly);
+    this->filesHash            = Factory::TextArea::Create(this, "something to add later", "x:40%, y:3%, w:35%, h:5%", TextAreaFlags::Readonly);
     this->exportButton         = Factory::Button::Create(this, "Export", "x:30%,y:95%,w:20%", EXPORT_BUTTON_ID);
     this->sortButton           = Factory::Button::Create(this, "Sort", "x:50%,y:95%,w:20%", SORT_BUTTON_ID);
     this->detectionReportLabel = Factory::Label::Create(this, "Results:", "x:20%,y:12%,w:20%");
@@ -79,7 +78,10 @@ Plugin::Plugin(Reference<Object> object) : Window("Virus Total Detections", "d:c
             Dialogs::MessageBox::ShowError("Error", "Error parsing the response JSON!");
         } else {
             ComputeMD5Hash();
+            ImportAndParseResult();
             CreateSortedListView();
+            //ExportResults();
+       
         }
 
     } catch (const json::parse_error& e) {
@@ -104,9 +106,17 @@ bool Plugin::ParseJsonResponse(json jsonValue)
     }
     this->noOfEngines = this->detectionsMap.size();
 
-    long long lastAnalysisDate = jsonValue["data"]["attributes"]["last_analysis_date"];
-    std::time_t time           = static_cast<std::time_t>(lastAnalysisDate);
-    std::tm* localTime         = std::localtime(&time);
+    this->lastAnalysisDate = jsonValue["data"]["attributes"]["last_analysis_date"];
+    
+    ComputeDetails();
+
+    return true;
+}
+
+bool Plugin::ComputeDetails()
+{
+    std::time_t time   = static_cast<std::time_t>(this->lastAnalysisDate);
+    std::tm* localTime = std::localtime(&time);
 
     char buffer[50];
     if (std::strftime(buffer, sizeof(buffer), "%Y-%m-%d %H:%M:%S", localTime)) {
@@ -122,17 +132,15 @@ bool Plugin::ParseJsonResponse(json jsonValue)
     reportMessage.append("/");
     reportMessage.append(std::to_string(this->noOfEngines));
     this->detectionReportLabel->SetText(reportMessage);
-
-    return true;
 }
 
 bool Plugin::ComputeMD5Hash()
 {
-    const auto objectSize = object->GetData().GetSize();
+    const auto objectSize = this->object->GetData().GetSize();
     ProgressStatus::Init("Computing...", objectSize);
     OpenSSLHash md5(OpenSSLHashKind::Md5);
     const auto offset = 0ULL;
-    const auto left   = object->GetData().GetSize();
+    const auto left   = this->object->GetData().GetSize();
 
     const char* format = "Reading [0x%.8llX/0x%.8llX] bytes...";
     if (objectSize > 0xFFFFFFFF) {
@@ -140,7 +148,7 @@ bool Plugin::ComputeMD5Hash()
     }
 
     LocalString<512> ls;
-    const auto block             = object->GetData().GetCacheSize();
+    const auto block             = this->object->GetData().GetCacheSize();
     const auto UpdateHashOnBlock = [&](uint64 offset, uint64 left) {
         do {
             CHECK(ProgressStatus::Update(offset, ls.Format(format, offset, objectSize)) == false, false, "");
@@ -148,7 +156,7 @@ bool Plugin::ComputeMD5Hash()
             const auto sizeToRead = (left >= block ? block : left);
             left -= (left >= block ? block : left);
 
-            const Buffer buffer = object->GetData().CopyToBuffer(offset, static_cast<uint32>(sizeToRead), true);
+            const Buffer buffer = this->object->GetData().CopyToBuffer(offset, static_cast<uint32>(sizeToRead), true);
             CHECK(buffer.IsValid(), false, "");
 
             CHECK(md5.Update(buffer.GetData(), static_cast<uint32>(buffer.GetLength())), false, "");
@@ -188,6 +196,55 @@ bool Plugin::CreateSortedListView()
         if (detection == "Undetected")
             lv->AddItem({ antivirus, detection });
     }
+    return true;
+}
+
+bool Plugin::ExportResults()
+{
+    json jsonObject = { { "last_analysis_date", this->lastAnalysisDate }, { "last_analysis_results", this->detectionsMap } };
+
+    std::string filename = this->md5Hash;
+    filename.append(".results.json");
+
+    std::ofstream outFile(filename);
+    if (!outFile.is_open())
+        return false;
+    outFile << jsonObject.dump(4);
+    outFile.close();
+    return true;
+}
+
+bool Plugin::ImportAndParseResult()
+{
+    std::string filename = this->md5Hash;
+    filename.append(".results.json");
+
+    std::ifstream inputFile(filename);
+    if (!inputFile.is_open())
+        return false;
+
+    try {
+        json jsonValue;
+        inputFile >> jsonValue;
+        this->noOfDetections = 0;
+        auto scanResults     = jsonValue["last_analysis_results"];
+        for (auto& [antivirus, detection] : scanResults.items()) {
+            std::string result = detection;
+            if (result != "Undetected")
+                this->noOfDetections++;
+            this->detectionsMap.insert({ antivirus, result });
+        }
+        this->noOfEngines = this->detectionsMap.size();
+
+        this->lastAnalysisDate = jsonValue["last_analysis_date"];
+
+        ComputeDetails();
+
+    } catch (const json::parse_error& e) {
+        return false;
+    }
+
+
     return true;
 }
 

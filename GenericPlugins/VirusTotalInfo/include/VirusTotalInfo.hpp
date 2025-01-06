@@ -23,10 +23,11 @@ private:
 
       bool hasData = true;
       string_view APIkey;
-      string_view md5Hash;
+      std::string md5Hash;
       std::map<std::string, std::string> detectionsMap;
       int noOfEngines;
       int noOfDetections;
+      long long lastAnalysisDate;
   
 private: 
 	  Reference<Object> object;
@@ -50,7 +51,9 @@ private:
       bool CreateListView();
       bool CreateSortedListView();
       bool ComputeMD5Hash();
-
+      bool ExportResults();
+      bool ImportAndParseResult();
+      bool ComputeDetails();
 	  virtual void OnAfterResize(int newWidth, int newHeight) override;
       bool OnEvent(Reference<Control> sender, Event eventType, int controlID) override;
 };
