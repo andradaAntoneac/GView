@@ -4,6 +4,8 @@
 #include <nlohmann/json.hpp>
 #include <map>
 using json = nlohmann::json;
+using namespace GView::Hashes;
+
 
 namespace GView::GenericPlugins::VirusTotalInfo
 {
@@ -21,6 +23,7 @@ private:
 
       bool hasData = true;
       string_view APIkey;
+      string_view md5Hash;
       std::map<std::string, std::string> detectionsMap;
       int noOfEngines;
       int noOfDetections;
@@ -44,9 +47,9 @@ private:
   public:
       Plugin(Reference<Object> object);
       bool ParseJsonResponse(json jsonValue);
-      bool GetHash();
       bool CreateListView();
       bool CreateSortedListView();
+      bool ComputeMD5Hash();
 
 	  virtual void OnAfterResize(int newWidth, int newHeight) override;
       bool OnEvent(Reference<Control> sender, Event eventType, int controlID) override;

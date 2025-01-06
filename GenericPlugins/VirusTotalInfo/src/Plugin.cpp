@@ -1,11 +1,12 @@
 #include "VirusTotalInfo.hpp"
-
 #include <fstream>
 #include <iostream>
 #include <ctime>
 
+
 namespace GView::GenericPlugins::VirusTotalInfo
 {
+
 Plugin::Plugin(Reference<Object> object) : Window("Virus Total Detections", "d:c,w:40%,h:70%", WindowFlags::Sizeable)
 {
     this->APIkey = Application::GetAppSettings()->GetSection("AppCUI").GetValue("VirusTotalAPIKey").ToString();
@@ -23,8 +24,8 @@ Plugin::Plugin(Reference<Object> object) : Window("Virus Total Detections", "d:c
           "x:10%, y:10%, w:80%",
           TextAreaFlags::Readonly);
 
-    this->hashLabel            = Factory::Label::Create(this, "Hash(MD5)", "x:30%,y:5%,w:20%");
-    this->filesHash            = Factory::TextArea::Create(this, "something to add later", "x:40%, y:3%, w:30%, h:5%", TextAreaFlags::Readonly);
+    this->hashLabel            = Factory::Label::Create(this, "Hash(MD5)", "x:30%,y:5%,w:30%");
+    this->filesHash            = Factory::TextArea::Create(this, "something to add later", "x:45%, y:3%, w:30%, h:5%", TextAreaFlags::Readonly);
     this->exportButton         = Factory::Button::Create(this, "Export", "x:30%,y:95%,w:20%", EXPORT_BUTTON_ID);
     this->sortButton           = Factory::Button::Create(this, "Sort", "x:50%,y:95%,w:20%", SORT_BUTTON_ID);
     this->detectionReportLabel = Factory::Label::Create(this, "Results:", "x:20%,y:12%,w:20%");
@@ -77,6 +78,7 @@ Plugin::Plugin(Reference<Object> object) : Window("Virus Total Detections", "d:c
         if (!ParseJsonResponse(jsonObj)) {
             Dialogs::MessageBox::ShowError("Error", "Error parsing the response JSON!");
         } else {
+            ComputeMD5Hash();
             CreateSortedListView();
         }
 
@@ -124,8 +126,45 @@ bool Plugin::ParseJsonResponse(json jsonValue)
     return true;
 }
 
-bool Plugin::GetHash()
+bool Plugin::ComputeMD5Hash()
 {
+    const auto objectSize = object->GetData().GetSize();
+    ProgressStatus::Init("Computing...", objectSize);
+    OpenSSLHash md5(OpenSSLHashKind::Md5);
+    const auto offset = 0ULL;
+    const auto left   = object->GetData().GetSize();
+
+    const char* format = "Reading [0x%.8llX/0x%.8llX] bytes...";
+    if (objectSize > 0xFFFFFFFF) {
+        format = "[0x%.16llX/0x%.16llX] bytes...";
+    }
+
+    LocalString<512> ls;
+    const auto block             = object->GetData().GetCacheSize();
+    const auto UpdateHashOnBlock = [&](uint64 offset, uint64 left) {
+        do {
+            CHECK(ProgressStatus::Update(offset, ls.Format(format, offset, objectSize)) == false, false, "");
+
+            const auto sizeToRead = (left >= block ? block : left);
+            left -= (left >= block ? block : left);
+
+            const Buffer buffer = object->GetData().CopyToBuffer(offset, static_cast<uint32>(sizeToRead), true);
+            CHECK(buffer.IsValid(), false, "");
+
+            CHECK(md5.Update(buffer.GetData(), static_cast<uint32>(buffer.GetLength())), false, "");
+
+            offset += sizeToRead;
+        } while (left > 0);
+
+        return true;
+    };
+
+    CHECK(UpdateHashOnBlock(offset, left), false, "");
+
+    md5.Final();
+    this->md5Hash = md5.GetHexValue();
+    this->filesHash->SetText(this->md5Hash);
+
     return true;
 }
 
