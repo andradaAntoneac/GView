@@ -2,18 +2,28 @@
 
 #include "GView.hpp"
 #include <nlohmann/json.hpp>
+#include <map>
+using json = nlohmann::json;
 
 namespace GView::GenericPlugins::VirusTotalInfo
 {
 static const uint32 SEND_BUTTON_ID = 1;
 static const uint32 IMPORT_BUTTON_ID = 2;
 static const uint32 CANCEL_BUTTON_ID   = 3;
+
+static const uint32 EXPORT_BUTTON_ID = 4;
+static const uint32 SORT_BUTTON_ID   = 5;
+
 class Plugin : public Window
 {
 private: 
 	  Reference<Control> parent;
+
       bool hasData = true;
       string_view APIkey;
+      std::map<std::string, std::string> detectionsMap;
+      int noOfEngines;
+      int noOfDetections;
   
 private: 
 	  Reference<Object> object;
@@ -24,10 +34,19 @@ private:
 
       Reference<Label> hashLabel;
       Reference<TextArea> filesHash;
+      Reference<Label> detectionReportLabel;
+      Reference<Label> lastScanLabel;
+      Reference<Button> exportButton;
+      Reference<Button> sortButton;
+
+      
 
   public:
       Plugin(Reference<Object> object);
-      bool ParseJsonResponse(std::string jsonValue);
+      bool ParseJsonResponse(json jsonValue);
+      bool GetHash();
+      bool CreateListView();
+      bool CreateSortedListView();
 
 	  virtual void OnAfterResize(int newWidth, int newHeight) override;
       bool OnEvent(Reference<Control> sender, Event eventType, int controlID) override;
