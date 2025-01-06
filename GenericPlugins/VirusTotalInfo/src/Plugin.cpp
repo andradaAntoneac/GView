@@ -2,8 +2,8 @@
 #include <fstream>
 #include <iostream>
 #include <ctime>
-#include <curl/curl.h>
-#undef MessageBox
+//#include <curl/curl.h>
+//#undef MessageBox
 
 namespace GView::GenericPlugins::VirusTotalInfo
 {
@@ -65,6 +65,7 @@ Plugin::Plugin(Reference<Object> object) : Window("Virus Total Detections", "d:c
         Dialogs::MessageBox::ShowWarning("Warning", "No API key found for the potential VirusTotal request !");
     }
 
+    ComputeMD5Hash();
     std::string responseString;
    /* if (CurlVirusTotalResults(responseString)) {*/
         try {
@@ -72,8 +73,7 @@ Plugin::Plugin(Reference<Object> object) : Window("Virus Total Detections", "d:c
             if (!ParseJsonResponse(jsonObj)) {
                 Dialogs::MessageBox::ShowError("Error", "Error parsing the response JSON!");
             } else {
-                ComputeMD5Hash();
-                ImportAndParseResult();
+                //ImportAndParseResult();
                 CreateSortedListView();
                 // ExportResults();
             }
@@ -81,10 +81,11 @@ Plugin::Plugin(Reference<Object> object) : Window("Virus Total Detections", "d:c
         } catch (const json::parse_error& e) {
             auto c = e.what();
             Dialogs::MessageBox::ShowError("Error", "Error getting the response JSON!");
+            /*     }
+             } else {
+                 Dialogs::MessageBox::ShowError("Error", "Error getting the response from VirusTotal!");
+             }*/
         }
-   /* } else {
-        Dialogs::MessageBox::ShowError("Error", "Error getting the response from VirusTotal!");
-    }*/
 }
 
 bool Plugin::ParseJsonResponse(json jsonValue)
@@ -252,9 +253,9 @@ size_t WriteCallback(void* contents, size_t size, size_t nmemb, void* userp)
 
 bool Plugin::CurlVirusTotalResults(std::string& responseString)
 {
-    /*std::string URL = "https: // www.virustotal.com/api/v3/files/";
+    /*std::string URL = "https://www.virustotal.com/api/v3/files/";
     URL.append(this->md5Hash);
-
+        
     CURL* curl = curl_easy_init();
     if (!curl) {
         return false;
