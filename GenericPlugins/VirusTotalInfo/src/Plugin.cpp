@@ -44,7 +44,7 @@ namespace GView::GenericPlugins::VirusTotalInfo
 
     bool Plugin::ParseJsonResponse(std::string jsonValue)
     {
-           
+        return true;
     }
 
     bool Plugin::OnEvent(Reference<Control> sender, Event eventType, int controlID)
