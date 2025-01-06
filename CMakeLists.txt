@@ -206,6 +206,7 @@ if(NOT DEFINED CMAKE_TESTING_ENABLED)
     add_subdirectory(GenericPlugins/Hashes)
     add_subdirectory(GenericPlugins/SyncCompare)
     add_subdirectory(GenericPlugins/EntropyVisualizer)
+    add_subdirectory(GenericPlugins/VirusTotalInfo)
     add_subdirectory(GenericPlugins/Dropper)
     add_subdirectory(GenericPlugins/Unpacker)
                                                                     
