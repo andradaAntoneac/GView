@@ -21,8 +21,7 @@ class Plugin : public Window
   private:
     Reference<Control> parent;
 
-    bool hasData = false;
-    bool sort    = false;
+    bool undetectedLast    = false;
     string_view APIkey;
     std::string md5Hash;
     std::string errorMessage;

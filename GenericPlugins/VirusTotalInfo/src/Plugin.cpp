@@ -22,44 +22,27 @@ Plugin::Plugin(Reference<Object> object) : Window("Virus Total Detections", "d:c
     this->noDataMessage = Factory::Label::Create(
           this, "There is no data about this file. Would you like to send a request to VirusTotal or import data?", "x:10%, y:10%, w:80%, h:30%");
 
-    this->hashLabel            = Factory::Label::Create(this, "Hash(MD5)", "x:30%,y:5%,w:30%");
-    this->filesHash            = Factory::TextField::Create(this, "hash", "x:40%, y:5%, w:37%");
+    this->hashLabel = Factory::Label::Create(this, "Hash(MD5)", "x:30%,y:5%,w:30%");
+    this->filesHash = Factory::TextField::Create(this, "hash", "x:40%, y:5%, w:37%");
 
     this->exportButton         = Factory::Button::Create(this, "Export", "x:30%,y:95%,w:20%", EXPORT_BUTTON_ID);
-    this->sortButton           = Factory::Button::Create(this, "Sort", "x:50%,y:95%,w:20%", SORT_BUTTON_ID);
+    this->sortButton           = Factory::Button::Create(this, "Undetected last", "x:50%,y:95%,w:20%", SORT_BUTTON_ID);
     this->detectionReportLabel = Factory::Label::Create(this, "Results:", "x:20%,y:12%,w:20%");
     this->lastScanLabel        = Factory::Label::Create(this, "LastScan:", "x:40%,y:12%,w:40%");
     this->listView = Factory::ListView::Create(this, "x:10%,y:15%,w:80%,h:80%", { "n:Antivirus,a:l,w:30%", "n:Detection,a:c,w:70%" }, ListViewFlags::None);
 
-    if (!this->hasData) {
-        // aici e prima imagine cand nu exista informatii despre fisier
-        this->sendButton->SetVisible(true);
-        this->importButton->SetVisible(true);
-        this->cancelButton->SetVisible(true);
-        this->noDataMessage->SetVisible(true);
+    this->sendButton->SetVisible(true);
+    this->importButton->SetVisible(true);
+    this->cancelButton->SetVisible(true);
+    this->noDataMessage->SetVisible(true);
 
-        this->hashLabel->SetVisible(false);
-        this->filesHash->SetVisible(false);
-        this->exportButton->SetVisible(false);
-        this->sortButton->SetVisible(false);
-        this->detectionReportLabel->SetVisible(false);
-        this->lastScanLabel->SetVisible(false);
-        this->listView->SetVisible(false);
-
-    } else {
-        // a doua imagine, exista informatii din request sau import
-        this->sendButton->SetVisible(false);
-        this->importButton->SetVisible(false);
-        this->cancelButton->SetVisible(false);
-        this->noDataMessage->SetVisible(false);
-
-        this->hashLabel->SetVisible(true);
-        this->filesHash->SetVisible(true);
-        this->exportButton->SetVisible(true);
-        this->sortButton->SetVisible(true);
-        this->detectionReportLabel->SetVisible(true);
-        this->lastScanLabel->SetVisible(true);
-    }
+    this->hashLabel->SetVisible(false);
+    this->filesHash->SetVisible(false);
+    this->exportButton->SetVisible(false);
+    this->sortButton->SetVisible(false);
+    this->detectionReportLabel->SetVisible(false);
+    this->lastScanLabel->SetVisible(false);
+    this->listView->SetVisible(false);
 
     if (this->APIkey.empty()) {
         Dialogs::MessageBox::ShowWarning("Warning", "No API key found for the potential VirusTotal request !");
@@ -347,7 +330,6 @@ bool Plugin::OnEvent(Reference<Control> sender, Event eventType, int controlID)
                 Dialogs::MessageBox::ShowError("Error", "Error getting the response JSON!");
             }
 
-            this->hasData = true;
             break;
         }
         case IMPORT_BUTTON_ID: {
@@ -371,7 +353,6 @@ bool Plugin::OnEvent(Reference<Control> sender, Event eventType, int controlID)
             } else {
                 Dialogs::MessageBox::ShowError("Error Import", this->errorMessage);
             }
-            this->hasData = true;
             break;
         }
         case EXPORT_BUTTON_ID: {
@@ -384,14 +365,14 @@ bool Plugin::OnEvent(Reference<Control> sender, Event eventType, int controlID)
         }
         case SORT_BUTTON_ID: {
             this->listView->SetVisible(true);
-            if (this->sort) {
-                this->sortButton->SetText("Unsort");
-                CreateSortedListView();
+            if (this->undetectedLast) {
+                this->sortButton->SetText("Undetected last");
+                CreateListView();
             } else {
                 this->sortButton->SetText("Sort");
-                CreateListView();
+                CreateSortedListView();
             }
-            this->sort = !this->sort;
+            this->undetectedLast = !this->undetectedLast;
             break;
         }
         case CANCEL_BUTTON_ID: {
