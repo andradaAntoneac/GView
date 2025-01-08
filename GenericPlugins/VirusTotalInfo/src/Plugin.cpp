@@ -270,6 +270,13 @@ bool Plugin::CurlVirusTotalResults(std::string& responseString)
         return false;
     }
 
+    long responseCode;
+    curl_easy_getinfo(curl, CURLINFO_RESPONSE_CODE, &responseCode);
+
+    if (responseCode != 200) {
+        return false;
+    }
+
     curl_slist_free_all(headers);
     curl_easy_cleanup(curl);
     return true;
@@ -316,6 +323,7 @@ bool Plugin::OnEvent(Reference<Control> sender, Event eventType, int controlID)
                         this->sortButton->SetVisible(false);
                         this->detectionReportLabel->SetVisible(false);
                         this->lastScanLabel->SetVisible(false);
+                        this->listView->SetVisible(false);
                     }
                 } else {
                     if (!ParseJsonResponse(jsonObj)) {
