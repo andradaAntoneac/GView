@@ -2,8 +2,8 @@
 #include <fstream>
 #include <iostream>
 #include <ctime>
-//#include <curl/curl.h>
-//#undef MessageBox
+#include <curl/curl.h>
+#undef MessageBox
 
 namespace GView::GenericPlugins::VirusTotalInfo
 {
@@ -17,20 +17,18 @@ Plugin::Plugin(Reference<Object> object) : Window("Virus Total Detections", "d:c
     this->object = object;
 
     this->sendButton    = Factory::Button::Create(this, "Send", "x:20%,y:75%,w:20%", SEND_BUTTON_ID);
-    this->importButton  = Factory::Button::Create(this, "Import", "x:40%,y:75%,w:20%", SEND_BUTTON_ID);
+    this->importButton  = Factory::Button::Create(this, "Import", "x:40%,y:75%,w:20%", IMPORT_BUTTON_ID);
     this->cancelButton  = Factory::Button::Create(this, "Cancel", "x:60%,y:75%,w:20%", CANCEL_BUTTON_ID);
-    this->noDataMessage = Factory::TextArea::Create(
-          this,
-          "There is no data about this file. Would you like to send a request to VirusTotal or import data?",
-          "x:10%, y:10%, w:80%",
-          TextAreaFlags::Readonly);
+    this->noDataMessage = Factory::Label::Create(
+          this, "There is no data about this file. Would you like to send a request to VirusTotal or import data?", "x:10%, y:10%, w:80%, h:30%");
 
     this->hashLabel            = Factory::Label::Create(this, "Hash(MD5)", "x:30%,y:5%,w:30%");
-    this->filesHash            = Factory::TextArea::Create(this, "something to add later", "x:40%, y:3%, w:35%, h:5%", TextAreaFlags::Readonly);
+    this->filesHash            = Factory::TextArea::Create(this, "hash", "x:40%, y:3%, w:37%, h:5%", TextAreaFlags::Readonly);
     this->exportButton         = Factory::Button::Create(this, "Export", "x:30%,y:95%,w:20%", EXPORT_BUTTON_ID);
     this->sortButton           = Factory::Button::Create(this, "Sort", "x:50%,y:95%,w:20%", SORT_BUTTON_ID);
     this->detectionReportLabel = Factory::Label::Create(this, "Results:", "x:20%,y:12%,w:20%");
     this->lastScanLabel        = Factory::Label::Create(this, "LastScan:", "x:40%,y:12%,w:40%");
+    this->listView = Factory::ListView::Create(this, "x:10%,y:15%,w:80%,h:80%", { "n:Antivirus,a:l,w:30%", "n:Detection,a:c,w:70%" }, ListViewFlags::None);
 
     if (!this->hasData) {
         // aici e prima imagine cand nu exista informatii despre fisier
@@ -45,6 +43,7 @@ Plugin::Plugin(Reference<Object> object) : Window("Virus Total Detections", "d:c
         this->sortButton->SetVisible(false);
         this->detectionReportLabel->SetVisible(false);
         this->lastScanLabel->SetVisible(false);
+        this->listView->SetVisible(false);
 
     } else {
         // a doua imagine, exista informatii din request sau import
@@ -64,51 +63,50 @@ Plugin::Plugin(Reference<Object> object) : Window("Virus Total Detections", "d:c
     if (this->APIkey.empty()) {
         Dialogs::MessageBox::ShowWarning("Warning", "No API key found for the potential VirusTotal request !");
     }
-
-    ComputeMD5Hash();
-    std::string responseString;
-   /* if (CurlVirusTotalResults(responseString)) {*/
-        try {
-            json jsonObj = json::parse(responseString);
-            if (!ParseJsonResponse(jsonObj)) {
-                Dialogs::MessageBox::ShowError("Error", "Error parsing the response JSON!");
-            } else {
-                //ImportAndParseResult();
-                CreateSortedListView();
-                // ExportResults();
-            }
-
-        } catch (const json::parse_error& e) {
-            auto c = e.what();
-            Dialogs::MessageBox::ShowError("Error", "Error getting the response JSON!");
-            /*     }
-             } else {
-                 Dialogs::MessageBox::ShowError("Error", "Error getting the response from VirusTotal!");
-             }*/
-        }
 }
 
 bool Plugin::ParseJsonResponse(json jsonValue)
 {
-    this->noOfDetections = 0;
-    auto scanResults     = jsonValue["data"]["attributes"]["last_analysis_results"];
-    for (auto& [antivirus, details] : scanResults.items()) {
-        std::string result;
-        if (details["result"].empty()) {
-            result = "Undetected";
-        } else {
-            result = details["result"];
-            this->noOfDetections++;
+    try {
+        this->noOfDetections = 0;
+        auto scanResults     = jsonValue["data"]["attributes"]["last_analysis_results"];
+        for (auto& [antivirus, details] : scanResults.items()) {
+            std::string result;
+            if (details["result"].empty()) {
+                result = "Undetected";
+            } else {
+                result = details["result"];
+                this->noOfDetections++;
+            }
+            this->detectionsMap.insert({ antivirus, result });
         }
-        this->detectionsMap.insert({ antivirus, result });
+        this->noOfEngines = this->detectionsMap.size();
+
+        this->lastAnalysisDate = jsonValue["data"]["attributes"]["last_analysis_date"];
+
+        ComputeDetails();
+    } catch (const json::exception& e) {
+        this->errorMessage = "Error in parsing the JSON response: \n";
+        this->errorMessage.append(e.what());
+        return false;
     }
-    this->noOfEngines = this->detectionsMap.size();
-
-    this->lastAnalysisDate = jsonValue["data"]["attributes"]["last_analysis_date"];
-
-    ComputeDetails();
 
     return true;
+}
+
+bool Plugin::ParseJsonResponseError(json jsonValue)
+{
+    try {
+        this->errorMessage         = jsonValue["error"]["code"];
+        std::string VTerrorMessage = jsonValue["error"]["message"];
+        this->errorMessage.append("\n");
+        this->errorMessage.append(VTerrorMessage);
+        return true;
+    } catch (const json::exception& e) {
+        this->errorMessage = "Error in parsing the JSON response: \n";
+        this->errorMessage.append(e.what());
+        return false;
+    }
 }
 
 bool Plugin::ComputeDetails()
@@ -176,23 +174,23 @@ bool Plugin::ComputeMD5Hash()
 
 bool Plugin::CreateListView()
 {
-    auto lv = Factory::ListView::Create(this, "x:10%,y:15%,w:80%,h:80%", { "n:Antivirus,a:l,w:30%", "n:Detection,a:c,w:70%" }, ListViewFlags::None);
+    this->listView->DeleteAllItems();
     for (auto& [antivirus, detection] : this->detectionsMap) {
-        lv->AddItem({ antivirus, detection });
+        this->listView->AddItem({ antivirus, detection });
     }
     return true;
 }
 
 bool Plugin::CreateSortedListView()
 {
-    auto lv = Factory::ListView::Create(this, "x:10%,y:15%,w:80%,h:80%", { "n:Antivirus,a:l,w:30%", "n:Detection,a:c,w:70%" }, ListViewFlags::None);
+    this->listView->DeleteAllItems();
     for (auto& [antivirus, detection] : this->detectionsMap) {
         if (detection != "Undetected")
-            lv->AddItem({ antivirus, detection });
+            this->listView->AddItem({ antivirus, detection });
     }
     for (auto& [antivirus, detection] : this->detectionsMap) {
         if (detection == "Undetected")
-            lv->AddItem({ antivirus, detection });
+            this->listView->AddItem({ antivirus, detection });
     }
     return true;
 }
@@ -218,8 +216,12 @@ bool Plugin::ImportAndParseResult()
     filename.append(".results.json");
 
     std::ifstream inputFile(filename);
-    if (!inputFile.is_open())
+    if (!inputFile.is_open()) {
+        this->errorMessage = "Could not find file ";
+        this->errorMessage.append(filename);
+        this->errorMessage.append(" in the same directory with the analyzed file!");
         return false;
+    }
 
     try {
         json jsonValue;
@@ -238,7 +240,9 @@ bool Plugin::ImportAndParseResult()
 
         ComputeDetails();
 
-    } catch (const json::parse_error& e) {
+    } catch (const json::exception& e) {
+        this->errorMessage = "Error in parsing the JSON file: \n";
+        this->errorMessage.append(e.what());
         return false;
     }
 
@@ -253,9 +257,11 @@ size_t WriteCallback(void* contents, size_t size, size_t nmemb, void* userp)
 
 bool Plugin::CurlVirusTotalResults(std::string& responseString)
 {
-    /*std::string URL = "https://www.virustotal.com/api/v3/files/";
+    std::string URL = "https://www.virustotal.com/api/v3/files/";
+
+    // this->md5Hash = "03f38abed3555ed1ac256fe0edef620a351463c05a651ee95da258d9e5352e9b";
     URL.append(this->md5Hash);
-        
+
     CURL* curl = curl_easy_init();
     if (!curl) {
         return false;
@@ -263,26 +269,25 @@ bool Plugin::CurlVirusTotalResults(std::string& responseString)
 
     curl_easy_setopt(curl, CURLOPT_URL, URL.c_str());
     curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, WriteCallback);
-    curl_easy_setopt(curl, CURLOPT_WRITEDATA, responseString);
+    curl_easy_setopt(curl, CURLOPT_WRITEDATA, &responseString);
 
-    struct curl_slist* headers = nullptr;
+    struct curl_slist* headers = NULL;
     std::string header         = "x-apikey: ";
     header.append(this->APIkey);
-    headers                    = curl_slist_append(headers, header.c_str());
+    headers = curl_slist_append(headers, "accept: application/json");
+    headers = curl_slist_append(headers, header.c_str());
     curl_easy_setopt(curl, CURLOPT_HTTPHEADER, headers);
 
     CURLcode res = curl_easy_perform(curl);
 
-    if(res != CURLE_OK)
-    {
-        std::cerr << "CURL request failed: " << curl_easy_strerror(res) << std::endl;
+    if (res != CURLE_OK) {
         curl_slist_free_all(headers);
         curl_easy_cleanup(curl);
         return false;
     }
 
     curl_slist_free_all(headers);
-    curl_easy_cleanup(curl);*/
+    curl_easy_cleanup(curl);
     return true;
 }
 
@@ -290,6 +295,111 @@ bool Plugin::OnEvent(Reference<Control> sender, Event eventType, int controlID)
 {
     if (Window::OnEvent(sender, eventType, controlID)) {
         return true;
+    }
+
+    if (eventType == AppCUI::Controls::Event::ButtonClicked) {
+        switch (controlID) {
+        case SEND_BUTTON_ID: {
+            if (this->APIkey.empty()) {
+                Dialogs::MessageBox::ShowError("Error", "No APIKey to make the VirusTotal request!");
+                break;
+            }
+            this->sendButton->SetVisible(false);
+            this->importButton->SetVisible(false);
+            this->cancelButton->SetVisible(false);
+            this->noDataMessage->SetVisible(false);
+
+            this->hashLabel->SetVisible(true);
+            this->filesHash->SetVisible(true);
+            this->exportButton->SetVisible(true);
+            this->sortButton->SetVisible(true);
+            this->detectionReportLabel->SetVisible(true);
+            this->lastScanLabel->SetVisible(true);
+            this->listView->SetVisible(true);
+
+            ComputeMD5Hash();
+            std::string responseString;
+            bool curlHasError = !CurlVirusTotalResults(responseString);
+            try {
+                json jsonObj = json::parse(responseString);
+
+                if (curlHasError) {
+                    if (!ParseJsonResponseError(jsonObj))
+                        Dialogs::MessageBox::ShowError("Error", "Error parsing the response JSON!\n" + this->errorMessage);
+                    else {
+                        Dialogs::MessageBox::ShowError("Virus Total Error", this->errorMessage);
+                        this->exportButton->SetVisible(false);
+                        this->sortButton->SetVisible(false);
+                        this->detectionReportLabel->SetVisible(false);
+                        this->lastScanLabel->SetVisible(false);
+                    }
+                } else {
+                    if (!ParseJsonResponse(jsonObj)) {
+                        Dialogs::MessageBox::ShowError("Error", "Error parsing the response JSON!\n" + this->errorMessage);
+                    } else {
+                        CreateListView();
+                    }
+                }
+
+            } catch (const json::parse_error& e) {
+                auto c = e.what();
+                Dialogs::MessageBox::ShowError("Error", "Error getting the response JSON!");
+            }
+
+            this->hasData = true;
+            break;
+        }
+        case IMPORT_BUTTON_ID: {
+            ComputeMD5Hash();
+
+            if (ImportAndParseResult()) {
+                this->sendButton->SetVisible(false);
+                this->importButton->SetVisible(false);
+                this->cancelButton->SetVisible(false);
+                this->noDataMessage->SetVisible(false);
+
+                this->hashLabel->SetVisible(true);
+                this->filesHash->SetVisible(true);
+                this->exportButton->SetVisible(true);
+                this->sortButton->SetVisible(true);
+                this->detectionReportLabel->SetVisible(true);
+                this->lastScanLabel->SetVisible(true);
+                this->listView->SetVisible(true);
+
+                CreateListView();
+            } else {
+                Dialogs::MessageBox::ShowError("Error Import", this->errorMessage);
+            }
+            this->hasData = true;
+            break;
+        }
+        case EXPORT_BUTTON_ID: {
+            if (ExportResults()) {
+                Dialogs::MessageBox::ShowNotification("Export", "Results saved!");
+            } else {
+                Dialogs::MessageBox::ShowError("Error Export", "Something went wrong in saving the results!");
+            }
+            break;
+        }
+        case SORT_BUTTON_ID: {
+            this->listView->SetVisible(true);
+            if (this->sort) {
+                this->sortButton->SetText("Unsort");
+                CreateSortedListView();
+            } else {
+                this->sortButton->SetText("Sort");
+                CreateListView();
+            }
+            this->sort = !this->sort;
+            break;
+        }
+        case CANCEL_BUTTON_ID: {
+            this->Exit();
+            break;
+        }
+        default:
+            break;
+        }
     }
 }
 

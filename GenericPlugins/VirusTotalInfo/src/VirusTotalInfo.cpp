@@ -1,4 +1,4 @@
- #include "VirusTotalInfo.hpp"
+#include "VirusTotalInfo.hpp"
 
 namespace GView::GenericPlugins::VirusTotalInfo
 {
@@ -18,4 +18,4 @@ PLUGIN_EXPORT void UpdateSettings(IniSection sect)
     sect["Command.VirusTotalInfo"] = Input::Key::Ctrl | Input::Key::T;
 }
 }
-}
+} // namespace GView::GenericPlugins::VirusTotalInfo
