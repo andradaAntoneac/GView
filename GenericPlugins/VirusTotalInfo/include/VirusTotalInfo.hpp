@@ -40,7 +40,7 @@ class Plugin : public Window
 
     Reference<Label> hashLabel;
     Reference<ListView> listView;
-    Reference<TextArea> filesHash;
+    Reference<TextField> filesHash;
     Reference<Label> detectionReportLabel;
     Reference<Label> lastScanLabel;
     Reference<Button> exportButton;

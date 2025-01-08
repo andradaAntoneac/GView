@@ -23,7 +23,8 @@ Plugin::Plugin(Reference<Object> object) : Window("Virus Total Detections", "d:c
           this, "There is no data about this file. Would you like to send a request to VirusTotal or import data?", "x:10%, y:10%, w:80%, h:30%");
 
     this->hashLabel            = Factory::Label::Create(this, "Hash(MD5)", "x:30%,y:5%,w:30%");
-    this->filesHash            = Factory::TextArea::Create(this, "hash", "x:40%, y:3%, w:37%, h:5%", TextAreaFlags::Readonly);
+    this->filesHash            = Factory::TextField::Create(this, "hash", "x:40%, y:5%, w:37%");
+
     this->exportButton         = Factory::Button::Create(this, "Export", "x:30%,y:95%,w:20%", EXPORT_BUTTON_ID);
     this->sortButton           = Factory::Button::Create(this, "Sort", "x:50%,y:95%,w:20%", SORT_BUTTON_ID);
     this->detectionReportLabel = Factory::Label::Create(this, "Results:", "x:20%,y:12%,w:20%");
