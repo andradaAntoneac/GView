@@ -1,13 +1,11 @@
 #pragma once
 
 #include "GView.hpp"
-#include <nlohmann/json.hpp>
-#include <map>
+#include "VirusTotalService.hpp"
 
-using json = nlohmann::json;
 using namespace GView::Hashes;
 
-namespace GView::GenericPlugins::VirusTotalInfo
+namespace GView::GenericPlugins::DetectionsInfo
 {
 static const uint32 SEND_BUTTON_ID   = 1;
 static const uint32 IMPORT_BUTTON_ID = 2;
@@ -18,13 +16,17 @@ static const uint32 SORT_BUTTON_ID   = 5;
 
 class Plugin : public Window
 {
-  private:
+  protected:
     Reference<Control> parent;
+    std::map<std::string, std::unique_ptr<IService>> services;
 
-    bool undetectedLast    = false;
+    bool undetectedLast = false;
     string_view APIkey;
     std::string md5Hash;
     std::string errorMessage;
+    std::string serviceKey;
+
+    bool importMade = false;
     std::map<std::string, std::string> detectionsMap;
     int noOfEngines;
     int noOfDetections;
@@ -32,9 +34,13 @@ class Plugin : public Window
 
   private:
     Reference<Object> object;
-    Reference<Button> sendButton;
+
+    Reference<Label> importMessage;
     Reference<Button> cancelButton;
     Reference<Button> importButton;
+
+    Reference<ComboBox> servicesComboBox;
+    Reference<Button> sendButton;
     Reference<Label> noDataMessage;
 
     Reference<Label> hashLabel;
@@ -47,17 +53,20 @@ class Plugin : public Window
 
   public:
     Plugin(Reference<Object> object);
-    bool ParseJsonResponse(json jsonValue);
-    bool ParseJsonResponseError(json jsonValue);
     bool CreateListView();
     bool CreateSortedListView();
     bool ComputeMD5Hash();
     bool ExportResults();
     bool ImportAndParseResult();
     bool ComputeDetails();
-    bool CurlVirusTotalResults(std::string& responseString);
+    bool CheckImportFile();
+    bool CreateServiceList();
+
+    void ShowImportWindow();
+    void ShowSendWindow();
+    void ShowDetectionsWindow();
 
     virtual void OnAfterResize(int newWidth, int newHeight) override;
     bool OnEvent(Reference<Control> sender, Event eventType, int controlID) override;
 };
-} // namespace GView::GenericPlugins::VirusTotalInfo
+} // namespace GView::GenericPlugins::DetectionsInfo
