@@ -1,7 +1,6 @@
-#include "VirusTotalService.hpp"
+#include "JottiService.hpp"
 
-
-bool VirusTotalService::CurlResults(std::string_view& key, std::string& MD5, std::string& responseString)
+bool JottiService::CurlResults(std::string_view& key, std::string& MD5, std::string& responseString)
 {
     std::string URL = "https://www.virustotal.com/api/v3/files/";
     URL.append(MD5);
@@ -42,7 +41,7 @@ bool VirusTotalService::CurlResults(std::string_view& key, std::string& MD5, std
     return true;
 }
 
-bool VirusTotalService::ParseResponse(json jsonValue)
+bool JottiService::ParseResponse(json jsonValue)
 {
     try {
         this->noOfDetections = 0;
@@ -70,7 +69,7 @@ bool VirusTotalService::ParseResponse(json jsonValue)
     return true;
 }
 
-bool VirusTotalService::ParseResponseError(json jsonValue)
+bool JottiService::ParseResponseError(json jsonValue)
 {
     try {
         this->errorMessage         = jsonValue["error"]["code"];
@@ -86,32 +85,32 @@ bool VirusTotalService::ParseResponseError(json jsonValue)
     return true;
 }
 
-std::string VirusTotalService::GetName()
+std::string JottiService::GetName()
 {
     return this->name;
 }
 
-std::map<std::string, std::string>& VirusTotalService::GetDetectionsMap()
+std::map<std::string, std::string>& JottiService::GetDetectionsMap()
 {
     return this->detectionsMap;
 }
 
-int VirusTotalService::GetNoOfEngines()
+int JottiService::GetNoOfEngines()
 {
     return this->noOfEngines;
 }
 
-int VirusTotalService::GetNoOfDetections()
+int JottiService::GetNoOfDetections()
 {
     return noOfDetections;
 }
 
-long long VirusTotalService::GetLastAnalysisDate()
+long long JottiService::GetLastAnalysisDate()
 {
     return this->lastAnalysisDate;
 }
 
-std::string VirusTotalService::GetErrorMessage()
+std::string JottiService::GetErrorMessage()
 {
     return this->errorMessage;
 }

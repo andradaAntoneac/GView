@@ -16,6 +16,7 @@ PLUGIN_EXPORT bool Run(const string_view command, Reference<GView::Object> objec
 PLUGIN_EXPORT void UpdateSettings(IniSection sect)
 {
     sect["Command.DetectionsInfo"] = Input::Key::Ctrl | Input::Key::T;
+    sect["VirusTotalAPIKey"]       = "";
 }
 }
 } // namespace GView::GenericPlugins::DetectionsInfo

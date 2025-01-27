@@ -8,9 +8,12 @@ namespace GView::GenericPlugins::DetectionsInfo
 Plugin::Plugin(Reference<Object> object) : Window("Detections", "d:c,w:40%,h:70%", WindowFlags::Sizeable)
 {
     // add the service
+    this->services.insert({ "Jotti", std::make_unique<JottiService>() });
     this->services.insert({ "VirusTotal", std::make_unique<VirusTotalService>() });
 
-    this->APIkey = Application::GetAppSettings()->GetSection("AppCUI").GetValue("VirusTotalAPIKey").ToString();
+    string_view VirusTotalAPIKey = Application::GetAppSettings()->GetSection("Generic.DetectionsInfo").GetValue("VirusTotalAPIKey").ToString();
+    this->credetials.insert({ "VirusTotal", VirusTotalAPIKey });
+    this->credetials.insert({ "Jotti", VirusTotalAPIKey });
 
     auto desktop = AppCUI::Application::GetDesktop();
     this->parent = desktop->GetFocusedChild();
@@ -42,7 +45,7 @@ Plugin::Plugin(Reference<Object> object) : Window("Detections", "d:c,w:40%,h:70%
         this->ShowSendWindow();
     }
 
-    if (this->APIkey.empty()) {
+    if (VirusTotalAPIKey.empty()) {
         Dialogs::MessageBox::ShowWarning("Warning", "No API key found for the potential VirusTotal request !");
     }
 }
@@ -231,6 +234,8 @@ bool Plugin::ComputeDetails()
     reportMessage.append("/");
     reportMessage.append(std::to_string(this->noOfEngines));
     this->detectionReportLabel->SetText(reportMessage);
+
+    return true;
 }
 
 bool Plugin::OnEvent(Reference<Control> sender, Event eventType, int controlID)
@@ -242,7 +247,7 @@ bool Plugin::OnEvent(Reference<Control> sender, Event eventType, int controlID)
     if (eventType == AppCUI::Controls::Event::ButtonClicked) {
         switch (controlID) {
         case SEND_BUTTON_ID: {
-            if (this->APIkey.empty()) {
+            if (!this->credetials.contains("VirusTotal")) {
                 Dialogs::MessageBox::ShowError("Error", "No APIKey to make the VirusTotal request!");
                 break;
             }
@@ -251,8 +256,9 @@ bool Plugin::OnEvent(Reference<Control> sender, Event eventType, int controlID)
             // matching the service from the map
             this->serviceKey = this->servicesComboBox->GetCurrentItemText();
 
+            auto key = this->credetials[serviceKey];
             std::string responseString;
-            bool curlHasError = !this->services[serviceKey]->CurlResults(this->APIkey, this->md5Hash, responseString);
+            bool curlHasError = !this->services[serviceKey]->CurlResults(key, this->md5Hash, responseString);
             try {
                 json jsonObj = json::parse(responseString);
 
@@ -260,7 +266,8 @@ bool Plugin::OnEvent(Reference<Control> sender, Event eventType, int controlID)
                     if (!this->services[serviceKey]->ParseResponseError(jsonObj))
                         Dialogs::MessageBox::ShowError("Error", "Error parsing the response JSON!\n" + this->services[serviceKey]->GetErrorMessage());
                     else {
-                        Dialogs::MessageBox::ShowError("Virus Total Error", this->services[serviceKey]->GetErrorMessage());
+                        std::string errorTitle = serviceKey + "Error";
+                        Dialogs::MessageBox::ShowError(errorTitle, this->services[serviceKey]->GetErrorMessage());
                         this->exportButton->SetVisible(false);
                         this->sortButton->SetVisible(false);
                         this->detectionReportLabel->SetVisible(false);
@@ -320,6 +327,7 @@ bool Plugin::OnEvent(Reference<Control> sender, Event eventType, int controlID)
             break;
         }
     }
+    return true;
 }
 
 void Plugin::ShowImportWindow()

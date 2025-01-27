@@ -2,6 +2,7 @@
 
 #include "GView.hpp"
 #include "VirusTotalService.hpp"
+#include "JottiService.hpp"
 
 using namespace GView::Hashes;
 
@@ -19,9 +20,9 @@ class Plugin : public Window
   protected:
     Reference<Control> parent;
     std::map<std::string, std::unique_ptr<IService>> services;
+    std::map<std::string, string_view> credetials;
 
     bool undetectedLast = false;
-    string_view APIkey;
     std::string md5Hash;
     std::string errorMessage;
     std::string serviceKey;

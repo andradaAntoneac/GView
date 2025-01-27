@@ -21,3 +21,5 @@ class IService
     virtual long long GetLastAnalysisDate()                        = 0;
     virtual std::string GetErrorMessage()                          = 0;
 };
+
+size_t WriteCallback(void* contents, size_t size, size_t nmemb, void* userp);
